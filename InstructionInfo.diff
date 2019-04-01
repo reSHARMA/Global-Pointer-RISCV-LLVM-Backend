@@ -1,0 +1,23 @@
+338a339
+> def LDW : Load_ri<0b011, "lwd">;
+342a344
+> def SWD : Store_rri<0b011, "swd">;
+423a426
+> 
+703a707
+> 
+866a871,877
+> 
+> def LWD : PatFrag<
+> 	(LoadOp GPR:$rs1),
+> 	(LWD GPR:$rs3, GPR:$rs1, GPR:$rs2),
+> 	[{return cast<MemSDNode>(N)->getAddressSpace() == 1}]
+> >; 
+> 
+882a894,899
+> 
+> def SWD : PatFrag<
+> 	(StoreOp StTy:$rs3, GPR:$rs1),
+> 	(SWD StTy:$rs3, GPR:$rs1, GPR:$rs2),
+> 	[{return cast<MemSDNode>(N)->getAddressSpace() == 1}]
+> >;

@@ -1,0 +1,48 @@
+368,375c368,388
+<   SDLoc DL(Op);
+<   EVT Ty = Op.getValueType();
+<   BlockAddressSDNode *N = cast<BlockAddressSDNode>(Op);
+<   const BlockAddress *BA = N->getBlockAddress();
+<   int64_t Offset = N->getOffset();
+< 
+<   if (isPositionIndependent())
+<     report_fatal_error("Unable to lowerBlockAddress");
+---
+>   std::vector<SDValue> highLowAddressPair, addressNode;
+>   highLowAddressPair = splitAddress(Op, DAG);
+>   for(SDValue halfAddressOp : highLowAddressPair){
+>     SDLoc DL(halfAddressOp);
+>     EVT Ty = halfAddressOp.getValueType();
+>     BlockAddressSDNode *N = cast<BlockAddressSDNode>(halfAddressOp);
+>     const BlockAddress *BA = N->getBlockAddress();
+>     int64_t Offset = N->getOffset();
+>   
+>     if (isPositionIndependent())
+>       report_fatal_error("Unable to lowerBlockAddress");
+>   
+>     SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
+>     SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
+>     SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
+>     SDValue MNLo =
+>       SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, BALo), 0);
+>     addressNode.push_back(MNLo);
+>     }
+>     return DAG.getMergeValues({MNLo[0], MNLo[1]}, DL);
+> }
+377,382c390,398
+<   SDValue BAHi = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_HI);
+<   SDValue BALo = DAG.getTargetBlockAddress(BA, Ty, Offset, RISCVII::MO_LO);
+<   SDValue MNHi = SDValue(DAG.getMachineNode(RISCV::LUI, DL, Ty, BAHi), 0);
+<   SDValue MNLo =
+<     SDValue(DAG.getMachineNode(RISCV::ADDI, DL, Ty, MNHi, BALo), 0);
+<   return MNLo;
+---
+> std::vector<SDValue> RISCVTargetLowering::splitAddress(SDValue Op, SelectionDAG DAG) const {
+>   SDLoc DL(Op);
+>   SDValue Vec = DAG.getNode(ISD::BITCAST, SL, MVT::i32, Op);
+>   const SDValue Zero = DAG.getConstant(0, SL, MVT::i32);
+>   const SDValue One = DAG.getConstant(1, SL, MVT::i32);
+>   SDValue Lo = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, MVT::i32, Vec, Zero);
+>   SDValue Hi = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, MVT::i32, Vec, One);
+>   std::vector<SDValue> highLowAddressPair{Lo, Hi};
+>   return highLowAddressPair;
